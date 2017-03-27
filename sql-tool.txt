@@ -1,0 +1,15 @@
+/*
+update nba_game.game_data set ev = round((pts+oreb*1.2+dreb+ast+stl*1.2+blk*1.2+(SPLIT_STR(fg, '-', 1)+0-SPLIT_STR(fg, '-', 2))+(SPLIT_STR(ft, '-', 1)+0-SPLIT_STR(ft, '-', 2))-fa-fo)* 48/26) 
+*/
+
+
+
+/*
+update player_data set sal = sal + IFNULL((select sum(ev) from game_data where game_date>='2017-01-01' and player_id = player_data.player_id),0);
+commit;
+*/
+
+
+
+SELECT * FROM nba_game.player_data where name in 
+(SELECT name FROM nba_game.player_data group by name having count(*)>1) order by name
