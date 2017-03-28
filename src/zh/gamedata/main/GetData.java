@@ -18,10 +18,9 @@ import zh.gamedata.tool.DataBase;
 
 public class GetData {
 
-	public static int SAL_RATIO = 1;
 	public static String playerNotExist = ",";
 	public static String gameEndDate = "";
-	public static String gameStartDate = "20170302";
+	public static String gameStartDate = "20170328";
 	public static float bonus = 1.2f;
 
 	public static void main(String[] args) throws IOException, SQLException {
@@ -73,7 +72,7 @@ public class GetData {
 			Document one_game = Jsoup
 					.connect("http://nba.sports.sina.com.cn/" + href)
 					.timeout(0).get();
-			Elements all_tr = one_game.select("#main tr");
+			Elements all_tr = one_game.select("#main #left tr");
 
 			for (Element one_player : all_tr) {
 				
@@ -154,7 +153,10 @@ public class GetData {
 		
 
 		System.out.println("开始保存");
-		db.SaveGameData(gdList);
+		for(GameData gd:gdList){
+			System.out.println(gd.getPlayer_name()+":"+gd.getEv());
+		}
+		//db.SaveGameData(gdList);
 		System.out.println("保存成功");
 		System.out.print("playerNotExist:"+playerNotExist);
 	}
@@ -175,26 +177,17 @@ public class GetData {
 		BigDecimal fault = new BigDecimal(gd.getFault());
 		BigDecimal foul = new BigDecimal(gd.getFoul());
 		
-		int ev_d = Math.round(point.add(oreb.multiply(new BigDecimal(bonus)))
-				.add(dreb).add(assist).add(steal.multiply(new BigDecimal(bonus)))
-				.add(block.multiply(new BigDecimal(bonus)))
-				.subtract(shoot_out).add(shoot_in).subtract(throw_out)
-				.add(throw_in).subtract(fault).subtract(foul).multiply(new BigDecimal(48)).divide(min,2,BigDecimal.ROUND_HALF_UP).floatValue());
-
-		ev_d = new BigDecimal(ev_d).multiply(new BigDecimal(SAL_RATIO))
-				.intValue();
-
-		gd.setEv(ev_d);
-
-		if (salMap.get(gd.getPlayer_id()) == null) {
-
-		} else {
-
-			int sal = new BigDecimal(salMap.get(gd.getPlayer_id())).add(
-					new BigDecimal(ev_d)).intValue();
-			gd.setSal(sal);
+		int ev_d = -2;
+		
+		if(min.intValue()>0){
+			ev_d = Math.round(point.add(oreb.multiply(new BigDecimal(bonus)))
+					.add(dreb).add(assist).add(steal.multiply(new BigDecimal(bonus)))
+					.add(block.multiply(new BigDecimal(bonus)))
+					.subtract(shoot_out).add(shoot_in).subtract(throw_out)
+					.add(throw_in).subtract(fault).subtract(foul).floatValue());
 		}
-
+		
+		gd.setEv(ev_d);
 	}
 
 	public String getIdFromUrl(String url) {
