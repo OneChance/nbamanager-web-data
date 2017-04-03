@@ -25,9 +25,7 @@ public class DataBase {
 
 			PreparedStatement p = conn
 					.prepareStatement("INSERT INTO game_data(player_id,player_name,min,fg,p3,ft,oreb,dreb,reb,ast,stl,blk,fa,fo,pts,ev,game_date) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
-
-			PreparedStatement p2 = conn
-					.prepareStatement("update player_data set sal=? where player_id=? ");
+			
 
 			for (GameData gd : gds) {
 				p.setString(1, gd.getPlayer_id());
@@ -48,15 +46,6 @@ public class DataBase {
 				p.setInt(16, gd.getEv());
 				p.setString(17, gd.getGame_date());
 				p.execute();
-
-				if (gd.getSal() < 500) {
-					gd.setSal(500);
-				}
-
-				p2.setInt(1, gd.getSal());
-				p2.setString(2, gd.getPlayer_id());
-
-				p2.executeUpdate();
 			}
 
 		} catch (SQLException e) {

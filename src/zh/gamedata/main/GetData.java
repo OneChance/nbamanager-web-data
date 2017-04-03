@@ -19,8 +19,8 @@ import zh.gamedata.tool.DataBase;
 public class GetData {
 
 	public static String playerNotExist = ",";
-	public static String gameEndDate = "";
-	public static String gameStartDate = "20170328";
+	public static String gameEndDate = "20170403";
+	public static String gameStartDate = "20170403";
 	public static float bonus = 1.2f;
 
 	public static void main(String[] args) throws IOException, SQLException {
@@ -30,7 +30,7 @@ public class GetData {
 		GetData gt = new GetData();
 
 		Document doc = Jsoup
-				.connect("http://nba.sports.sina.com.cn/match_result.php?day=0&years=2017&months=03&teams=")
+				.connect("http://nba.sports.sina.com.cn/match_result.php?day=0&years=2017&months=04&teams=")
 				.timeout(0).get();
 		Elements trs = doc.select("#table980middle tr");
 
@@ -156,7 +156,7 @@ public class GetData {
 		for(GameData gd:gdList){
 			System.out.println(gd.getPlayer_name()+":"+gd.getEv());
 		}
-		//db.SaveGameData(gdList);
+		db.SaveGameData(gdList);
 		System.out.println("保存成功");
 		System.out.print("playerNotExist:"+playerNotExist);
 	}
