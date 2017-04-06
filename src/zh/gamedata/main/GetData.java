@@ -156,7 +156,7 @@ public class GetData {
 		for(GameData gd:gdList){
 			System.out.println(gd.getPlayer_name()+":"+gd.getEv());
 		}
-		db.SaveGameData(gdList);
+		//db.SaveGameData(gdList);
 		System.out.println("保存成功");
 		System.out.print("playerNotExist:"+playerNotExist);
 	}
