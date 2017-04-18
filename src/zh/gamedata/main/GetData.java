@@ -19,18 +19,26 @@ import zh.gamedata.tool.DataBase;
 public class GetData {
 
 	public static String playerNotExist = ",";
-	public static String gameEndDate = "20170403";
-	public static String gameStartDate = "20170403";
+	public static String gameEndDate = "20170418";
+	public static String gameStartDate = "20170418";
+	public static String year ="";
+	public static String month="";
 	public static float bonus = 1.2f;
 
 	public static void main(String[] args) throws IOException, SQLException {
-
-		System.out.println("开始获取比赛数据...");
+		if(args.length==2){
+			gameEndDate = args[0];
+			gameStartDate = args[1];	
+			year = args[2];
+			month = args[3];
+		}	
+				
+		System.out.println("fetch begin...");
 		
 		GetData gt = new GetData();
 
 		Document doc = Jsoup
-				.connect("http://nba.sports.sina.com.cn/match_result.php?day=0&years=2017&months=04&teams=")
+				.connect("http://nba.sports.sina.com.cn/match_result.php?day=0&years="+year+"&months="+month+"&teams=")
 				.timeout(0).get();
 		Elements trs = doc.select("#table980middle tr");
 
@@ -66,19 +74,19 @@ public class GetData {
 				continue;
 			}
 			
-			String game_date = date.substring(0,4)+"-"+date.substring(4,6)+"-"+date.substring(6,8);;
+			String game_date = date.substring(0,4)+"-"+date.substring(4,6)+"-"+date.substring(6,8);
 
 			// 单个比赛统计
 			Document one_game = Jsoup
 					.connect("http://nba.sports.sina.com.cn/" + href)
 					.timeout(0).get();
-			Elements all_tr = one_game.select("#main #left tr");
+			Elements allTr = one_game.select("#main #left tr");
 
-			for (Element one_player : all_tr) {
+			for (Element onePlayer : allTr) {
 				
-				Elements game_datas = one_player.select("td");
+				Elements gameDatas = onePlayer.select("td");
 				
-				String playerHref = game_datas.get(0)
+				String playerHref = gameDatas.get(0)
 						.select("a").attr("href");
 				
 				if(playerHref==null ||playerHref.equals("") || !playerHref.contains("player_one.php")){
@@ -86,33 +94,30 @@ public class GetData {
 				}
 
 				String player_id = gt.getIdFromUrl(playerHref);
-				String player_name = game_datas.get(0).select("a")
+				String player_name = gameDatas.get(0).select("a")
 						.html();
 				
 				if (salMap.get(player_id) == null) {
 					if(!playerNotExist.contains(","+player_id+",")){
-						System.out.println(player_name + "[" + player_id
-								+ "] 系统无该球员数据,记录...");
 						playerNotExist = playerNotExist + player_id+",";
 					}
 				}
 
-				if (game_datas.size() == 14) {
-					// 14列 球员该场数据
+				if (gameDatas.size() == 14) {
 					
-					String game_time = game_datas.get(1).html();
-					String shoot = game_datas.get(2).html();
-					String point3 = game_datas.get(3).html();
-					String free_throw = game_datas.get(4).html();
-					String rebound_front = game_datas.get(5).html();
-					String rebound_back = game_datas.get(6).html();
-					String rebound = game_datas.get(7).html();
-					String assist = game_datas.get(8).html();
-					String steal = game_datas.get(9).html();
-					String block = game_datas.get(10).html();
-					String fault = game_datas.get(11).html();
-					String foul = game_datas.get(12).html();
-					String point = game_datas.get(13).html();
+					String game_time = gameDatas.get(1).html();
+					String shoot = gameDatas.get(2).html();
+					String point3 = gameDatas.get(3).html();
+					String free_throw = gameDatas.get(4).html();
+					String rebound_front = gameDatas.get(5).html();
+					String rebound_back = gameDatas.get(6).html();
+					String rebound = gameDatas.get(7).html();
+					String assist = gameDatas.get(8).html();
+					String steal = gameDatas.get(9).html();
+					String block = gameDatas.get(10).html();
+					String fault = gameDatas.get(11).html();
+					String foul = gameDatas.get(12).html();
+					String point = gameDatas.get(13).html();
 
 					if (!player_id.equals("")) {
 						GameData gd = new GameData();
@@ -137,7 +142,7 @@ public class GetData {
 						
 						gdList.add(gd);
 					}
-				}else if(game_datas.size() == 2){					
+				}else if(gameDatas.size() == 2){					
 					//没有上场的球员			
 					if (!player_id.equals("")) {
 						GameData gd = new GameData();
@@ -149,16 +154,16 @@ public class GetData {
 					}
 				}
 			}
-		}
+		}		
 		
-
-		System.out.println("开始保存");
-		for(GameData gd:gdList){
-			System.out.println(gd.getPlayer_name()+":"+gd.getEv());
-		}
-		//db.SaveGameData(gdList);
-		System.out.println("保存成功");
-		System.out.print("playerNotExist:"+playerNotExist);
+		System.out.println("fetch complete.size:"+gdList.size());	
+		
+		String gameStartDateFormat = gameStartDate.substring(0,4)+"-"+gameStartDate.substring(4,6)+"-"+gameStartDate.substring(6,8);
+		String gameStartEndFormat = gameStartDate.substring(0,4)+"-"+gameStartDate.substring(4,6)+"-"+gameStartDate.substring(6,8);
+		
+		db.saveGameData(gdList,gameStartDateFormat,gameStartEndFormat);
+		
+		System.out.println("playerNotExist:"+playerNotExist);
 	}
 
 	public void setEV(GameData gd, Map<String, Integer> salMap) {
@@ -177,7 +182,7 @@ public class GetData {
 		BigDecimal fault = new BigDecimal(gd.getFault());
 		BigDecimal foul = new BigDecimal(gd.getFoul());
 		
-		int ev_d = -2;
+		int ev_d = -5;
 		
 		if(min.intValue()>0){
 			ev_d = Math.round(point.add(oreb.multiply(new BigDecimal(bonus)))

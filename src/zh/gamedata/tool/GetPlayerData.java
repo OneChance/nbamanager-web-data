@@ -107,7 +107,7 @@ public class GetPlayerData {
 				p.setPlayer_name(player_name);
 				p.setPos(pos);
 				p.setDownload_src(download_src);
-				p.setSal(2000);
+				p.setSal(1500);
 				
 				addList.add(p);
 

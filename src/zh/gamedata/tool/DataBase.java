@@ -15,18 +15,21 @@ import zh.gamedata.entity.Player;
 public class DataBase {
 
 	Connection conn = null;
-	String url = "jdbc:mysql://localhost:3306/nba_game?"
-			+ "user=root&password=1111&useUnicode=true&characterEncoding=UTF8";
+	String url = "jdbc:mysql://nbamanager.cupbvpigfxmu.ap-northeast-1.rds.amazonaws.com/nba_game?"
+			+ "user=nba_admin&password=celtics31a&useUnicode=true&characterEncoding=UTF8";
 
-	public String SaveGameData(List<GameData> gds) throws SQLException {
+	public String saveGameData(List<GameData> gds,String dateStart,String dateEnd) throws SQLException {
 		try {
 			Class.forName("com.mysql.jdbc.Driver");
 			conn = DriverManager.getConnection(url);
+			
+			conn.setAutoCommit(false);
 
 			PreparedStatement p = conn
 					.prepareStatement("INSERT INTO game_data(player_id,player_name,min,fg,p3,ft,oreb,dreb,reb,ast,stl,blk,fa,fo,pts,ev,game_date) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
 			
-
+			System.out.println("save game data begin");
+			
 			for (GameData gd : gds) {
 				p.setString(1, gd.getPlayer_id());
 				p.setString(2, gd.getPlayer_name());
@@ -47,7 +50,27 @@ public class DataBase {
 				p.setString(17, gd.getGame_date());
 				p.execute();
 			}
-
+			
+			System.out.println("save game data complete");
+					
+			//更新球员工资
+			PreparedStatement pUpdateSal = conn
+					.prepareStatement("update player_data set sal = sal + IFNULL((select sum(ev) from game_data where game_date>=? and game_date<=? and player_id = player_data.player_id),0)");
+			pUpdateSal.setString(1, dateStart);
+			pUpdateSal.setString(2, dateEnd);
+			pUpdateSal.executeUpdate();
+			System.out.println("update player salary complete");
+			
+			//更新球队资金
+			PreparedStatement pUpdateTeamMoney = conn
+					.prepareStatement("update team set money = money + if((select count(*) from team_player where team_id = team.id)<1,-25,(SELECT ifnull(sum(ev),0) ev FROM nba_game.game_data where player_id in (select player_id from team_player where team_id = team.id) and (game_date>=? and game_date<=?)))");
+			pUpdateTeamMoney.setString(1, dateStart);
+			pUpdateTeamMoney.setString(2, dateEnd);
+			pUpdateTeamMoney.executeUpdate();
+			System.out.println("update team money complete");
+			
+			conn.commit();
+			
 		} catch (SQLException e) {
 			System.out.println("MySQL操作错误");
 			e.printStackTrace();
