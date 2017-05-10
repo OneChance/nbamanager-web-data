@@ -1,7 +1,14 @@
 package zh.gamedata.main;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.math.BigDecimal;
+import java.net.HttpURLConnection;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.net.URL;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -19,27 +26,27 @@ import zh.gamedata.tool.DataBase;
 public class GetData {
 
 	public static String playerNotExist = ",";
-	public static String gameEndDate = "20170418";
-	public static String gameStartDate = "20170418";
-	public static String year ="";
-	public static String month="";
+	public static String gameEndDate = "20170509";
+	public static String gameStartDate = "20170509";
+	public static String year = "";
+	public static String month = "";
 	public static float bonus = 1.2f;
 
 	public static void main(String[] args) throws IOException, SQLException {
-		if(args.length==2){
+		if (args.length == 2) {
 			gameEndDate = args[0];
-			gameStartDate = args[1];	
+			gameStartDate = args[1];
 			year = args[2];
 			month = args[3];
-		}	
-				
-		System.out.println("fetch begin...");
-		
+		}
+
 		GetData gt = new GetData();
 
-		Document doc = Jsoup
-				.connect("http://nba.sports.sina.com.cn/match_result.php?day=0&years="+year+"&months="+month+"&teams=")
-				.timeout(0).get();
+		System.out.println("fetch begin...");
+
+		Document doc = gt.getDoc(
+				"http://nba.sports.sina.com.cn/match_result.php?day=0&years=" + year + "&months=" + month + "&teams=");
+
 		Elements trs = doc.select("#table980middle tr");
 
 		Calendar calendar = Calendar.getInstance();
@@ -60,51 +67,47 @@ public class GetData {
 
 			String href = tds.get(8).select("a").attr("href");
 
-			if(href==null ||href.equals("") || !href.contains("look_scores.php")){
+			if (href == null || href.equals("") || !href.contains("look_scores.php")) {
 				continue;
 			}
-					
+
 			String date = gt.getIdFromUrl(href).substring(0, 8);
-			
-			if(!gameEndDate.equals("") && Long.parseLong(date)>Long.parseLong(gameEndDate)){
+
+			if (!gameEndDate.equals("") && Long.parseLong(date) > Long.parseLong(gameEndDate)) {
 				continue;
 			}
-			
-			if(!gameStartDate.equals("") && Long.parseLong(date)<Long.parseLong(gameStartDate)){
+
+			if (!gameStartDate.equals("") && Long.parseLong(date) < Long.parseLong(gameStartDate)) {
 				continue;
 			}
-			
-			String game_date = date.substring(0,4)+"-"+date.substring(4,6)+"-"+date.substring(6,8);
+
+			String game_date = date.substring(0, 4) + "-" + date.substring(4, 6) + "-" + date.substring(6, 8);
 
 			// 单个比赛统计
-			Document one_game = Jsoup
-					.connect("http://nba.sports.sina.com.cn/" + href)
-					.timeout(0).get();
+			Document one_game = gt.getDoc("http://nba.sports.sina.com.cn/" + href);
 			Elements allTr = one_game.select("#main #left tr");
 
 			for (Element onePlayer : allTr) {
-				
+
 				Elements gameDatas = onePlayer.select("td");
-				
-				String playerHref = gameDatas.get(0)
-						.select("a").attr("href");
-				
-				if(playerHref==null ||playerHref.equals("") || !playerHref.contains("player_one.php")){
+
+				String playerHref = gameDatas.get(0).select("a").attr("href");
+
+				if (playerHref == null || playerHref.equals("") || !playerHref.contains("player_one.php")) {
 					continue;
 				}
 
 				String player_id = gt.getIdFromUrl(playerHref);
-				String player_name = gameDatas.get(0).select("a")
-						.html();
-				
+				String player_name = gameDatas.get(0).select("a").html();
+
 				if (salMap.get(player_id) == null) {
-					if(!playerNotExist.contains(","+player_id+",")){
-						playerNotExist = playerNotExist + player_id+",";
+					if (!playerNotExist.contains("," + player_id + ",")) {
+						playerNotExist = playerNotExist + player_id + ",";
 					}
 				}
 
 				if (gameDatas.size() == 14) {
-					
+
 					String game_time = gameDatas.get(1).html();
 					String shoot = gameDatas.get(2).html();
 					String point3 = gameDatas.get(3).html();
@@ -137,33 +140,117 @@ public class GetData {
 						gd.setFoul(foul);
 						gd.setPoint(point);
 						gd.setGame_date(game_date);
-						
+
 						gt.setEV(gd, salMap);
-						
+
 						gdList.add(gd);
 					}
-				}else if(gameDatas.size() == 2){					
-					//没有上场的球员			
+				} else if (gameDatas.size() == 2) {
+					// 没有上场的球员
 					if (!player_id.equals("")) {
 						GameData gd = new GameData();
 						gd.setPlayer_id(player_id);
 						gd.setPlayer_name(player_name);
 						gd.setGame_date(game_date);
-						gd.setEv(-5);				
+						gd.setEv(-5);
 						gdList.add(gd);
 					}
 				}
 			}
-		}		
-		
-		System.out.println("fetch complete.size:"+gdList.size());	
-		
-		String gameStartDateFormat = gameStartDate.substring(0,4)+"-"+gameStartDate.substring(4,6)+"-"+gameStartDate.substring(6,8);
-		String gameStartEndFormat = gameStartDate.substring(0,4)+"-"+gameStartDate.substring(4,6)+"-"+gameStartDate.substring(6,8);
-		
-		db.saveGameData(gdList,gameStartDateFormat,gameStartEndFormat);
-		
-		System.out.println("playerNotExist:"+playerNotExist);
+		}
+
+		System.out.println("fetch complete.size:" + gdList.size());
+
+		String gameStartDateFormat = gameStartDate.substring(0, 4) + "-" + gameStartDate.substring(4, 6) + "-"
+				+ gameStartDate.substring(6, 8);
+		String gameStartEndFormat = gameStartDate.substring(0, 4) + "-" + gameStartDate.substring(4, 6) + "-"
+				+ gameStartDate.substring(6, 8);
+
+		db.saveGameData(gdList, gameStartDateFormat, gameStartEndFormat);
+
+		System.out.println("playerNotExist:" + playerNotExist);
+	}
+
+	public Document getDoc(String docUrl) {
+
+		Document doc = null;
+		String serverRes = "";
+
+		int i = 0;
+
+		List<String> ips = getProxyList();
+
+		while (i < ips.size() && (serverRes.equals("") || serverRes.contains("301 Moved Permanently"))) {
+			try {
+				
+				System.out.println("ip switch to:" + ips.get(i));
+				
+				Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress(ips.get(i), 80));
+
+				URL url = new URL(docUrl);
+
+				HttpURLConnection urlConn = (HttpURLConnection) url.openConnection(proxy);
+				
+				urlConn.setRequestProperty("contentType", "utf-8");
+				urlConn.setRequestProperty("User-agent",
+						"Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.11 (KHTML, like Gecko) Chrome/17.0.963.84 Safari/535.11 LBBROWSER");
+
+				urlConn.connect(); // 获取连接
+
+				InputStream is = urlConn.getInputStream();
+
+				BufferedReader buffer = new BufferedReader(new InputStreamReader(is,"GBK"));
+
+				StringBuffer bs = new StringBuffer();
+
+				String l = null;
+
+				while ((l = buffer.readLine()) != null) {
+					bs.append(l);
+				}
+
+				serverRes = bs.toString();
+
+			} catch (Exception e) {
+
+			}
+
+			i++;
+		}
+
+		if (i >= 1) {
+			System.out.println("use ip:" + ips.get(i - 1));
+		}
+
+		if (!serverRes.equals("")) {
+			doc = Jsoup.parse(serverRes.toString());
+		}
+
+		return doc;
+	}
+
+	// 获取代理服务器列表
+	public List<String> getProxyList() {
+		List<String> ips = new ArrayList<String>();
+		try {
+			Document proxySite = Jsoup.connect("http://www.xicidaili.com/")
+					.userAgent(
+							"Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.31 (KHTML, like Gecko) Chrome/26.0.1410.64 Safari/537.31")
+					.timeout(0).get();
+			Elements trs = proxySite.select("#ip_list tr");
+			for (Element tr : trs) {
+				Elements tds = tr.select("td");
+				if (tds.size() == 8) {
+					String port = tds.get(2).html();
+					if (port != null && port.equals("80")) {
+						ips.add(tds.get(1).html());
+					}
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return ips;
 	}
 
 	public void setEV(GameData gd, Map<String, Integer> salMap) {
@@ -181,17 +268,16 @@ public class GetData {
 		BigDecimal throw_in = new BigDecimal(gd.getFree_throw().split("-")[0]);
 		BigDecimal fault = new BigDecimal(gd.getFault());
 		BigDecimal foul = new BigDecimal(gd.getFoul());
-		
+
 		int ev_d = -5;
-		
-		if(min.intValue()>0){
-			ev_d = Math.round(point.add(oreb.multiply(new BigDecimal(bonus)))
-					.add(dreb).add(assist).add(steal.multiply(new BigDecimal(bonus)))
-					.add(block.multiply(new BigDecimal(bonus)))
-					.subtract(shoot_out).add(shoot_in).subtract(throw_out)
-					.add(throw_in).subtract(fault).subtract(foul).floatValue());
+
+		if (min.intValue() > 0) {
+			ev_d = Math.round(point.add(oreb.multiply(new BigDecimal(bonus))).add(dreb).add(assist)
+					.add(steal.multiply(new BigDecimal(bonus))).add(block.multiply(new BigDecimal(bonus)))
+					.subtract(shoot_out).add(shoot_in).subtract(throw_out).add(throw_in).subtract(fault).subtract(foul)
+					.floatValue());
 		}
-		
+
 		gd.setEv(ev_d);
 	}
 
