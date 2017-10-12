@@ -15,6 +15,10 @@ import zh.gamedata.entity.Player;
 public class DataBase {
 
 	Connection conn = null;
+
+	//String url = "jdbc:mysql://localhost:3306/nba_game?"
+	//		+ "user=root&password=1111&useUnicode=true&characterEncoding=UTF8";
+
 	String url = "jdbc:mysql://nbamanager.cupbvpigfxmu.ap-northeast-1.rds.amazonaws.com/nba_game?"
 			+ "user=nba_admin&password=celtics31a&useUnicode=true&characterEncoding=UTF8";
 
