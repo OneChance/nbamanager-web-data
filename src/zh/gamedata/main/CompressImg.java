@@ -4,7 +4,7 @@ import zh.gamedata.tool.GetPlayerData;
 
 public class CompressImg {
 	
-	public static String IMG_SRC = "C:\\Users\\ceeg\\Pictures\\20160358.jpg";
+	public static String IMG_SRC = "C:\\Users\\ceeg\\Pictures\\20160368.jpg";
 	
 	public static void main(String[] args) throws Exception{
 		if(args.length>0){
