@@ -21,7 +21,7 @@ public class DataBase {
     //		+ "user=root&password=1111&useUnicode=true&characterEncoding=UTF8";
 
     String url = "jdbc:mysql://nbamanager.cupbvpigfxmu.ap-northeast-1.rds.amazonaws.com/nba_game?"
-            + "user=nba_admin&password=celtics31a&useUnicode=true&characterEncoding=UTF8";
+    + "user=nba_admin&password=celtics31a&useUnicode=true&characterEncoding=UTF8";
 
     public String saveGameData(List<GameData> gds, String dateStart, String dateEnd) throws SQLException {
         try {

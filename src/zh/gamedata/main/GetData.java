@@ -27,12 +27,12 @@ import zh.gamedata.tool.DataBase;
 public class GetData {
 
     public static String playerNotExist = ",";
-    public static String gameEndDate = "20171006";
-    public static String gameStartDate = "20171006";
+    public static String gameEndDate = "20171108";
+    public static String gameStartDate = "20171108";
     public static String year = "2017";
-    public static String month = "10";
+    public static String month = "11";
     public static float bonus = 1.2f;
-    public static int TIMEOUT = 300000;
+    public static int TIMEOUT = 30000;
 
     public static void main(String[] args) throws IOException, SQLException {
         if (args.length > 0) {
@@ -51,7 +51,7 @@ public class GetData {
 
         Document doc = Jsoup.connect(gamesUrl)
                 .userAgent("Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.11 (KHTML, like Gecko) Chrome/17.0.963.84 Safari/535.11 LBBROWSER")
-                .header("Referer", "http://nba.sports.sina.com.cn/match_result.php")
+                .referrer("http://nba.sports.sina.com.cn/match_result.php")
                 .timeout(TIMEOUT).get();
 
         Elements trs = doc.select("#table980middle tr");
@@ -67,7 +67,9 @@ public class GetData {
         List<Player> pList = db.getPlayerAll();
         Map<String, Integer> salMap = new HashMap<String, Integer>();
 
-        pList.forEach(p -> salMap.put(p.getPlayer_id(), p.getSal()));
+        for (Player p : pList) {
+            salMap.put(p.getPlayer_id(), p.getSal());
+        }
 
         for (Element tr : trs) {
             Elements tds = tr.select("td");
@@ -92,7 +94,7 @@ public class GetData {
 
             // 单个比赛统计
             Document one_game = Jsoup.connect("http://nba.sports.sina.com.cn/" + href)
-                    .header("Referer", gamesUrl)
+                    .referrer(gamesUrl)
                     .userAgent("Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.11 (KHTML, like Gecko) Chrome/17.0.963.84 Safari/535.11 LBBROWSER")
                     .timeout(TIMEOUT)
                     .get();
