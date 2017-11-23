@@ -21,9 +21,9 @@ public class DataBase {
     //		+ "user=root&password=1111&useUnicode=true&characterEncoding=UTF8";
 
     String url = "jdbc:mysql://nbamanager.cupbvpigfxmu.ap-northeast-1.rds.amazonaws.com/nba_game?"
-    + "user=nba_admin&password=celtics31a&useUnicode=true&characterEncoding=UTF8";
+            + "user=nba_admin&password=celtics31a&useUnicode=true&characterEncoding=UTF8";
 
-    public String saveGameData(List<GameData> gds, String dateStart, String dateEnd) throws SQLException {
+    public String saveGameData(List<GameData> gds, String dateStart, String dateEnd, boolean isToday) throws SQLException {
         try {
             Class.forName("com.mysql.jdbc.Driver");
             conn = DriverManager.getConnection(url);
@@ -67,12 +67,22 @@ public class DataBase {
             System.out.println("update player salary complete");
 
             //更新球队资金
+            String updateSql;
+
+            if (isToday) {
+                updateSql = "update team set " +
+                        "earn_today = if((select count(*) from team_player where team_id = team.id)<5,0,(SELECT ifnull(sum(ev),0) ev FROM nba_game.game_data where player_id in (select player_id from team_player where team_id = team.id) and (game_date>=? and game_date<=?)))," +
+                        "cost_today = ifnull((select ceil(sum(sign_money/" + SEASON_DAYS + ")) from team_player where team_id = team.id),0)," +
+                        "money = money + earn_today - cost_today," +
+                        "ev=ifnull(ev,0) + earn_today";
+            } else {
+                updateSql = "update team set " +
+                        "money = money + if((select count(*) from team_player where team_id = team.id)<5,0,(SELECT ifnull(sum(ev),0) ev FROM nba_game.game_data where player_id in (select player_id from team_player where team_id = team.id) and (game_date>=? and game_date<=?))) - ifnull((select ceil(sum(sign_money/" + SEASON_DAYS + ")) from team_player where team_id = team.id),0)," +
+                        "ev=ifnull(ev,0) + earn_today";
+            }
+
             PreparedStatement pUpdateTeamMoney = conn
-                    .prepareStatement("update team set " +
-                            "earn_today = if((select count(*) from team_player where team_id = team.id)<5,0,(SELECT ifnull(sum(ev),0) ev FROM nba_game.game_data where player_id in (select player_id from team_player where team_id = team.id) and (game_date>=? and game_date<=?)))," +
-                            "cost_today = ifnull((select ceil(sum(sign_money/" + SEASON_DAYS + ")) from team_player where team_id = team.id),0)," +
-                            "money = money + earn_today - cost_today," +
-                            "ev=ifnull(ev,0) + earn_today");
+                    .prepareStatement(updateSql);
             pUpdateTeamMoney.setString(1, dateStart);
             pUpdateTeamMoney.setString(2, dateEnd);
             pUpdateTeamMoney.executeUpdate();
