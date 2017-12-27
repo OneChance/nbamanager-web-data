@@ -1,188 +1,120 @@
 package zh.gamedata.main;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.math.BigDecimal;
-import java.net.HttpURLConnection;
-import java.net.InetSocketAddress;
-import java.net.Proxy;
-import java.net.URL;
-import java.sql.SQLException;
-import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.util.*;
 
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import zh.gamedata.entity.GameData;
 import zh.gamedata.entity.Player;
 import zh.gamedata.tool.DataBase;
+import zh.gamedata.tool.GetPlayerData;
+import zh.gamedata.tool.JsoupUtil;
 
 public class GetData {
 
-    public static String playerNotExist = ",";
-    public static String gameEndDate = "20171121";
-    public static String gameStartDate = "20171121";
-    public static String year = "2017";
-    public static String month = "11";
-    public static float bonus = 1.2f;
-    public static int TIMEOUT = 30000;
-    public static SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
+    private static LocalDate fetchDate = LocalDate.of(2017, 12, 27);
+    private static int span = 6;
 
     public static void main(String[] args) throws Exception {
-        if (args.length > 0) {
-            gameStartDate = args[0];
-            gameEndDate = args[1];
-            year = args[2];
-            month = args[3];
+        if (args.length == 2) {
+            fetchDate = LocalDate.parse(args[0]);
+            span = Integer.parseInt(args[1]);
         }
 
-        GetData gt = new GetData();
+        DataBase db = new DataBase();
+        GetPlayerData pd = new GetPlayerData();
+        JsonParser parse = new JsonParser();
 
         while (true) {
             try {
                 System.out.println("fetch begin...");
 
-                String gamesUrl = "http://nba.sports.sina.com.cn/match_result.php?day=0&years="
-                        + year + "&months=" + month + "&teams=";
-
-                Document doc = Jsoup.connect(gamesUrl)
-                        .userAgent("Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.11 (KHTML, like Gecko) Chrome/17.0.963.84 Safari/535.11 LBBROWSER")
-                        .referrer("http://nba.sports.sina.com.cn/match_result.php")
-                        .timeout(TIMEOUT).get();
-
-                Elements trs = doc.select("#table980middle tr");
-
-                System.out.println(trs.size());
-
-                Calendar calendar = Calendar.getInstance();
-                calendar.add(Calendar.DAY_OF_YEAR, -1);
-
-                DataBase db = new DataBase();
-
-                List<GameData> gdList = new ArrayList<GameData>();
+                List<GameData> gdList = new ArrayList<>();
                 List<Player> pList = db.getPlayerAll();
-                Map<String, Integer> salMap = new HashMap<String, Integer>();
-
+                List<Player> notExist = new ArrayList<>();
+                //这里把当前数据库存在的球员列表做成map,方便后面查找
+                Map<String, Integer> dbPlayers = new HashMap<>();
                 for (Player p : pList) {
-                    salMap.put(p.getPlayer_id(), p.getSal());
+                    dbPlayers.put(p.getUuid(), 1);
                 }
 
-                for (Element tr : trs) {
-                    Elements tds = tr.select("td");
+                String matchesJsonString = JsoupUtil.getJsonContent("&s=schedule&a=date_span&date=" + fetchDate + "&span=" + span, "https://slamdunk.sports.sina.com.cn/match");
 
-                    String href = tds.get(8).select("a").attr("href");
+                JsonObject matchesJson = (JsonObject) parse.parse(matchesJsonString);
 
-                    if (href == null || href.equals("") || !href.contains("look_scores.php")) {
+                JsonArray matches = JsoupUtil.getData(matchesJson).get("matchs").getAsJsonArray();
+
+                for (JsonElement match : matches) {
+                    JsonObject matchObject = match.getAsJsonObject();
+                    String matchId = matchObject.get("mid").getAsString();
+                    String gameDate = matchObject.get("date").getAsString();
+
+                    if (!fetchDate.equals(LocalDate.parse(gameDate))) {
                         continue;
                     }
 
-                    String date = gt.getIdFromUrl(href).substring(0, 8);
+                    String playerDataJsonString = JsoupUtil.getJsonContent("&p=radar&s=summary&a=game_player&mid=" + matchId, "https://slamdunk.sports.sina.com.cn/match/stats?mid=" + matchId);
 
-                    if (!gameEndDate.equals("") && Long.parseLong(date) > Long.parseLong(gameEndDate)) {
-                        continue;
-                    }
+                    JsonObject playerDataJson = (JsonObject) parse.parse(playerDataJsonString);
 
-                    if (!gameStartDate.equals("") && Long.parseLong(date) < Long.parseLong(gameStartDate)) {
-                        continue;
-                    }
+                    JsonArray playerDatas = JsoupUtil.getData(playerDataJson)
+                            .get("home").getAsJsonObject()
+                            .get("players").getAsJsonArray();
 
-                    String game_date = date.substring(0, 4) + "-" + date.substring(4, 6) + "-" + date.substring(6, 8);
+                    JsonArray awayPlayerDatas = JsoupUtil.getData(playerDataJson)
+                            .get("away").getAsJsonObject()
+                            .get("players").getAsJsonArray();
 
-                    // 单个比赛统计
-                    Document one_game = Jsoup.connect("http://nba.sports.sina.com.cn/" + href)
-                            .referrer(gamesUrl)
-                            .userAgent("Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.11 (KHTML, like Gecko) Chrome/17.0.963.84 Safari/535.11 LBBROWSER")
-                            .timeout(TIMEOUT)
-                            .get();
+                    playerDatas.addAll(awayPlayerDatas);
 
-                    Elements allTr = one_game.select("#main #left tr");
+                    for (JsonElement playerData : playerDatas) {
+                        GameData gd = new GameData();
+                        JsonObject playerDataObject = playerData.getAsJsonObject();
+                        String min = playerDataObject.get("minutes").getAsString().split(":")[0];
+                        String uuid = playerDataObject.get("pid").getAsString();
 
-                    for (Element onePlayer : allTr) {
-
-                        Elements gameDatas = onePlayer.select("td");
-
-                        String playerHref = gameDatas.get(0).select("a").attr("href");
-
-                        if (playerHref == null || playerHref.equals("") || !playerHref.contains("player_one.php")) {
-                            continue;
+                        if (dbPlayers.get(uuid) == null) {
+                            Player needAdd = pd.getPlayerByUUID(uuid);
+                            notExist.add(needAdd);
                         }
 
-                        String player_id = gt.getIdFromUrl(playerHref);
-                        String player_name = gameDatas.get(0).select("a").html();
+                        gd.setUuid(uuid);
+                        gd.setGameDate(gameDate);
+                        gd.setMin(min);
+                        gd.setShoot(playerDataObject.get("field_goals_made").getAsString() + "-" + playerDataObject.get("field_goals_att"));
+                        gd.setPoint3(playerDataObject.get("three_points_made").getAsString() + "-" + playerDataObject.get("three_points_att"));
+                        gd.setFreeThrow(playerDataObject.get("free_throws_made").getAsString() + "-" + playerDataObject.get("free_throws_att"));
+                        gd.setOffRebound(playerDataObject.get("offensive_rebounds").getAsString());
+                        gd.setDefRebound(playerDataObject.get("defensive_rebounds").getAsString());
+                        gd.setRebound(playerDataObject.get("rebounds").getAsString());
+                        gd.setAssist(playerDataObject.get("assists").getAsString());
+                        gd.setSteal(playerDataObject.get("steals").getAsString());
+                        gd.setBlock(playerDataObject.get("blocks").getAsString());
+                        gd.setFault(playerDataObject.get("turnovers").getAsString());
+                        gd.setFoul(playerDataObject.get("personal_fouls").getAsString());
+                        gd.setPoint(playerDataObject.get("points").getAsString());
 
-                        if (salMap.get(player_id) == null) {
-                            if (!playerNotExist.contains("," + player_id + ",")) {
-                                playerNotExist = playerNotExist + player_id + ",";
-                            }
+                        if (min.equals("00")) {
+                            gd.setEv(-5);
+                        } else {
+                            setEV(gd);
                         }
 
-                        if (gameDatas.size() == 14) {
-
-                            String game_time = gameDatas.get(1).html();
-                            String shoot = gameDatas.get(2).html();
-                            String point3 = gameDatas.get(3).html();
-                            String free_throw = gameDatas.get(4).html();
-                            String rebound_front = gameDatas.get(5).html();
-                            String rebound_back = gameDatas.get(6).html();
-                            String rebound = gameDatas.get(7).html();
-                            String assist = gameDatas.get(8).html();
-                            String steal = gameDatas.get(9).html();
-                            String block = gameDatas.get(10).html();
-                            String fault = gameDatas.get(11).html();
-                            String foul = gameDatas.get(12).html();
-                            String point = gameDatas.get(13).html();
-
-                            if (!player_id.equals("")) {
-                                GameData gd = new GameData();
-                                gd.setPlayer_id(player_id);
-                                gd.setPlayer_name(player_name);
-                                gd.setGame_time(game_time);
-                                gd.setShoot(shoot);
-                                gd.setPoint3(point3);
-                                gd.setFree_throw(free_throw);
-                                gd.setRebound_front(rebound_front);
-                                gd.setRebound_back(rebound_back);
-                                gd.setRebound(rebound);
-                                gd.setAssist(assist);
-                                gd.setSteal(steal);
-                                gd.setBlock(block);
-                                gd.setFault(fault);
-                                gd.setFoul(foul);
-                                gd.setPoint(point);
-                                gd.setGame_date(game_date);
-
-                                gt.setEV(gd, salMap);
-
-                                gdList.add(gd);
-                            }
-                        } else if (gameDatas.size() == 2) {
-                            // 没有上场的球员
-                            if (!player_id.equals("")) {
-                                GameData gd = new GameData();
-                                gd.setPlayer_id(player_id);
-                                gd.setPlayer_name(player_name);
-                                gd.setGame_date(game_date);
-                                gd.setEv(-5);
-                                gdList.add(gd);
-                            }
-                        }
+                        gdList.add(gd);
                     }
                 }
 
                 System.out.println("fetch complete.size:" + gdList.size());
 
-                String gameStartDateFormat = gameStartDate.substring(0, 4) + "-" + gameStartDate.substring(4, 6) + "-"
-                        + gameStartDate.substring(6, 8);
-                String gameStartEndFormat = gameStartDate.substring(0, 4) + "-" + gameStartDate.substring(4, 6) + "-"
-                        + gameStartDate.substring(6, 8);
+                db.saveGameData(gdList, fetchDate.toString(), fetchDate.equals(LocalDate.now()));
 
-                db.saveGameData(gdList, gameStartDateFormat, gameStartEndFormat, (gameStartDate.equals(sdf.format(new Date()))));
 
-                System.out.println("playerNotExist:" + playerNotExist);
+                //添加不存在的球员
+                db.savePlayer(notExist);
 
                 break;
             } catch (Exception e) {
@@ -190,30 +122,30 @@ public class GetData {
                 Thread.sleep(300000);
                 e.printStackTrace();
                 System.out.println("try again...");
-                continue;
             }
         }
     }
 
-    public void setEV(GameData gd, Map<String, Integer> salMap) {
-        BigDecimal min = new BigDecimal(gd.getGame_time());
+    private static void setEV(GameData gd) {
+        BigDecimal min = new BigDecimal(gd.getMin());
         BigDecimal point = new BigDecimal(gd.getPoint());
-        BigDecimal oreb = new BigDecimal(gd.getRebound_front());
-        BigDecimal dreb = new BigDecimal(gd.getRebound_back());
+        BigDecimal oreb = new BigDecimal(gd.getOffRebound());
+        BigDecimal dreb = new BigDecimal(gd.getDefRebound());
         BigDecimal assist = new BigDecimal(gd.getAssist());
         BigDecimal steal = new BigDecimal(gd.getSteal());
         BigDecimal block = new BigDecimal(gd.getBlock());
 
         BigDecimal shoot_out = new BigDecimal(gd.getShoot().split("-")[1]);
         BigDecimal shoot_in = new BigDecimal(gd.getShoot().split("-")[0]);
-        BigDecimal throw_out = new BigDecimal(gd.getFree_throw().split("-")[1]);
-        BigDecimal throw_in = new BigDecimal(gd.getFree_throw().split("-")[0]);
+        BigDecimal throw_out = new BigDecimal(gd.getFreeThrow().split("-")[1]);
+        BigDecimal throw_in = new BigDecimal(gd.getFreeThrow().split("-")[0]);
         BigDecimal fault = new BigDecimal(gd.getFault());
         BigDecimal foul = new BigDecimal(gd.getFoul());
 
         int ev_d = -5;
 
         if (min.intValue() > 0) {
+            float bonus = 1.2f;
             ev_d = Math.round(point.add(oreb.multiply(new BigDecimal(bonus))).add(dreb).add(assist)
                     .add(steal.multiply(new BigDecimal(bonus))).add(block.multiply(new BigDecimal(bonus)))
                     .subtract(shoot_out).add(shoot_in).subtract(throw_out).add(throw_in).subtract(fault).subtract(foul)
@@ -221,11 +153,5 @@ public class GetData {
         }
 
         gd.setEv(ev_d);
-    }
-
-    public String getIdFromUrl(String url) {
-        int start = url.indexOf("=") + 1;
-        String id = url.substring(start, url.length());
-        return id;
     }
 }

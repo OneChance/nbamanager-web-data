@@ -1,256 +1,154 @@
 package zh.gamedata.tool;
 
-import java.awt.Image;
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import javax.imageio.ImageIO;
 
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
-
-import com.sun.image.codec.jpeg.JPEGCodec;
-import com.sun.image.codec.jpeg.JPEGImageEncoder;
-
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import net.coobird.thumbnailator.Thumbnails;
 import zh.gamedata.entity.Player;
+import zh.gamedata.entity.PlayerTemp;
 
-//导入球员基本数据
+//球员基本数据
 public class GetPlayerData {
 
-    public static String PLAYER_PAGE = "http://nba.sports.sina.com.cn/players.php?dpc=1";
+    public static String storePathBase = "/home/ceeg/idea-workspace/nbamanager-front/app/style/images/player/";
 
-    public void AddAllPlayerData(String store_path) throws Exception {
-        DataBase db = new DataBase();
-        List<Player> pList = getAllPlayerFromSina(true, store_path);
-        if (pList.size() > 0)
-            db.SavePlayerData(pList);
+    public static void main(String[] args) throws Exception {
+        imgRename();
     }
 
-    /**
-     * 检测sina球员列表,若存在本地数据库没有的球员,更新到本地数据库(目前发现sina球员中的部分球员不在这个页面列表中,可用AddPlayerByIds方法去局部更新)
-     *
-     * @param  imageStorePath
-     * @throws Exception
-     */
-    public void UpdatePlayer(String imageStorePath) throws Exception {
-        DataBase db = new DataBase();
-        List<Player> player_db = db.getPlayerAll();
-        List<Player> player_sina = getAllPlayerFromSina(false, imageStorePath);
-
-        List<Player> player_update = new ArrayList<Player>();
-        List<Player> player_add = new ArrayList<Player>();
-
-        for (Player player_s : player_sina) {
-
-            boolean db_exist = false;
-
-            for (Player player_d : player_db) {
-                if (player_s.getPlayer_id().equals(player_d.getPlayer_id())) {
-                    // 更新图片
-                    if (player_d.getImg_src() == null
-                            || player_d.getImg_src().equals("")) {
-
-                        if (downLoadImg(player_s, imageStorePath)) {
-                            player_d.setImg_src(player_s.getImg_src());
-                            player_update.add(player_d);
-                        }
-
-                    }
-
-                    db_exist = true;
-                    break;
-                }
-            }
-
-            if (!db_exist) {
-                player_s.setSal(500);
-                downLoadImg(player_s, imageStorePath);
-                player_add.add(player_s);
-            }
-
-        }
-
-        db.UpdatePlayerData(player_update, player_add);
+    public Player getPlayerByUUID(String uuid) throws IOException {
+        JsonParser parse = new JsonParser();
+        String playerInfoJsonString = JsoupUtil.getJsonContent("&p=radar&s=player&a=info&pid=" + uuid, "https://slamdunk.sports.sina.com.cn/roster");
+        JsonObject playerInfoJson = (JsonObject) parse.parse(playerInfoJsonString);
+        JsonObject playerObject = JsoupUtil.getData(playerInfoJson);
+        Player player = new Player();
+        player.setUuid(uuid);
+        player.setName((playerObject.get("first_name_cn").getAsString() + "·" + playerObject.get("last_name_cn").getAsString()).replaceAll("-", "·"));
+        player.setNameEn((playerObject.get("first_name").getAsString() + "·" + playerObject.get("last_name").getAsString()).replaceAll("-", "·"));
+        player.setPos(getPosFromInfo(playerObject.get("primary_position").getAsString()));
+        player.setSal(1500);
+        return player;
     }
 
-    /**
-     * @param imgStorePath
-     * @param playerIds
-     * @throws Exception
-     */
-    public void AddPlayerByIds(String imgStorePath, String playerIds) throws Exception {
-        System.out.println("get player data start");
-        DataBase db = new DataBase();
-        List<Player> addList = new ArrayList<Player>();
-        if (!playerIds.equals("")) {
-            String[] players = playerIds.split(",");
-            for (String id : players) {
-                Document one_player = Jsoup
-                        .connect("http://nba.sports.sina.com.cn/player.php?id=" + id)
-                        .userAgent("Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.11 (KHTML, like Gecko) Chrome/17.0.963.84 Safari/535.11 LBBROWSER")
-                        .header("Referer", PLAYER_PAGE)
-                        .timeout(0).get();
-                String player_name = one_player.select("#table730top p")
-                        .select("strong").html();
-                String playerInfo = one_player.select("#table730top p").html();
+    public List<PlayerTemp> getAllPlayerFromSina(boolean download_img, String store_path) throws Exception {
 
-                String pos = getPosFromInfo(playerInfo);
+        String teamsJsonString = JsoupUtil.getJsonContent("&s=team&a=rosters&limit=24", "https://slamdunk.sports.sina.com.cn/roster");
 
-                // 读取照片
-                String download_src = one_player.select("#table730middle img")
-                        .attr("src");
+        JsonParser parse = new JsonParser();
 
-                Player p = new Player();
-                p.setPlayer_id(id);
-                p.setPlayer_name(player_name);
-                p.setPos(pos);
-                p.setDownload_src(download_src);
-                p.setSal(1500);
+        JsonObject teamsJson = (JsonObject) parse.parse(teamsJsonString);
 
-                addList.add(p);
+        JsonArray teams = JsoupUtil.getData(teamsJson).get("teams").getAsJsonArray();
 
-                //downLoadImg(p, imgStorePath);
+        List<PlayerTemp> pList = new ArrayList<>();
 
-                System.out.println("[" + p.getPlayer_name() + "] data get complete!");
-            }
-        }
-        System.out.println("saving...");
-        db.UpdatePlayerData(new ArrayList<Player>(), addList);
-        System.out.println("saved");
-        System.out.println("all complete!");
-    }
+        for (JsonElement team : teams) {
 
-    public List<Player> getAllPlayerFromSina(boolean download_img,
-                                             String store_path) throws Exception {
-        Document doc = Jsoup
-                .connect("http://nba.sports.sina.com.cn/players.php?dpc=1")
-                .userAgent("Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.11 (KHTML, like Gecko) Chrome/17.0.963.84 Safari/535.11 LBBROWSER")
-                .header("Referer", "http://sports.sina.com.cn/nba/")
-                .timeout(0).get();
+            String teamId = team.getAsJsonObject().get("team").getAsJsonObject()
+                    .get("tid").getAsString();
 
-        Elements tds = doc.select("#table980middle td");
+            String teamPlayersJsonString = JsoupUtil.getJsonContent("&p=radar&s=team&a=roster&tid=" + teamId + "&season=2017", "https://slamdunk.sports.sina.com.cn/team?tid=" + teamId);
 
-        List<Player> pList = new ArrayList<Player>();
+            JsonObject teamPlayersJson = (JsonObject) parse.parse(teamPlayersJsonString);
 
-        for (Element td : tds) {
+            JsonArray players = JsoupUtil.getData(teamPlayersJson).get("roster").getAsJsonArray();
 
-            String href = td.select("a").attr("href");
-
-            // 读取每个球员数据
-            if (href.contains("player.php?id=")) {
-
-                Document one_player = Jsoup
-                        .connect("http://nba.sports.sina.com.cn/" + href)
-                        .userAgent("Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.11 (KHTML, like Gecko) Chrome/17.0.963.84 Safari/535.11 LBBROWSER")
-                        .header("Referer", PLAYER_PAGE)
-                        .timeout(0).get();
-
-                String player_id = getIdFromUrl(href);
-                String player_name = one_player.select("#table730top p")
-                        .select("strong").html();
-                String playerInfo = one_player.select("#table730top p").html();
-                String pos = getPosFromInfo(playerInfo);
-
-                // 读取照片
-                String download_src = one_player.select("#table730middle img")
-                        .attr("src");
-
-                Player p = new Player();
-                p.setPlayer_id(player_id);
-                p.setPlayer_name(player_name);
-                p.setPos(pos);
-                p.setDownload_src(download_src);
-                p.setSal(2000);
-
-                if (download_img)
-                    downLoadImg(p, store_path);
-
-                System.out.println("[" + p.getPlayer_name() + "]数据获取完成");
-                pList.add(p);
+            for (JsonElement player : players) {
+                PlayerTemp temp = new PlayerTemp();
+                JsonObject playerObject = player.getAsJsonObject();
+                String playerId = playerObject.get("pid").getAsString();
+                String playerNameEn = (playerObject.get("first_name").getAsString() + "·" + playerObject.get("last_name").getAsString()).replaceAll("-", "·");
+                String playerName = (playerObject.get("first_name_cn").getAsString() + "·" + playerObject.get("last_name_cn").getAsString()).replaceAll("-", "·");
+                temp.setUuid(playerId);
+                temp.setName(playerName);
+                temp.setNameEn(playerNameEn);
+                pList.add(temp);
             }
         }
 
-        System.out.println("球员数据获取完成");
+        System.out.println("player data fetch complete");
         return pList;
     }
 
-    private String getPosFromInfo(String playerInfo){
+    private String getPosFromInfo(String playerInfo) {
         String pos = "";
-        if(playerInfo.indexOf("中锋")>0){
+        if (playerInfo.indexOf("中锋") > 0) {
             pos = pos + "中锋/";
         }
-        if(playerInfo.indexOf("前锋")>0){
+        if (playerInfo.indexOf("前锋") > 0) {
             pos = pos + "前锋/";
         }
-        if(playerInfo.indexOf("后卫")>0){
+        if (playerInfo.indexOf("后卫") > 0) {
             pos = pos + "后卫/";
         }
-        if(pos.endsWith("/")){
-            pos = pos.substring(0,pos.length()-1);
+        if (pos.endsWith("/")) {
+            pos = pos.substring(0, pos.length() - 1);
         }
         return pos;
     }
 
-    private boolean downLoadImg(Player player, String store_path) {
+    private static void downLoadPlayerImg(List<String> uuids) {
         try {
-            String download_src = player.getDownload_src();
-            String imageName = download_src.substring(
-                    download_src.lastIndexOf("/") + 1, download_src.length());
-            URL uri = new URL(download_src);
-            InputStream in = uri.openStream();
+            String srcBase = "https://www.sinaimg.cn/ty/nba/player/NBA_1_1/";
 
-            String imgSrc = store_path + "\\" + imageName;
+            for (String uuid : uuids) {
 
-            FileOutputStream fo = new FileOutputStream(new File(imgSrc));
-            byte[] buf = new byte[1024];
-            int length = 0;
-            System.out.println("开始下载:" + download_src);
-            while ((length = in.read(buf, 0, buf.length)) != -1) {
-                fo.write(buf, 0, length);
+                String imgName = uuid + ".png";
+                String downloadSrc = srcBase + imgName;
+                String storePath = "/home/ceeg/idea-workspace/nbamanager-front/app/style/images/player/" + imgName;
+
+
+                URL uri = new URL(downloadSrc);
+                InputStream in = uri.openStream();
+
+                FileOutputStream fo = new FileOutputStream(new File(storePath));
+                byte[] buf = new byte[1024];
+                int length = 0;
+                System.out.println("开始下载:" + downloadSrc);
+                while ((length = in.read(buf, 0, buf.length)) != -1) {
+                    fo.write(buf, 0, length);
+                }
+                in.close();
+                fo.close();
+                System.out.println(imgName + "下载完成");
+
+                compressImg(storePath, storePath);
             }
-            in.close();
-            fo.close();
-            System.out.println(imageName + "下载完成");
 
-            compressImg(imgSrc);
-
-            player.setImg_src(imageName);
-            return true;
         } catch (Exception e) {
             System.out.println("下载失败" + e.getMessage());
-            return false;
         }
     }
 
-    public void compressImg(String imgSrc) throws Exception {
+    public static void compressImg(String imgSrc, String storePath) throws Exception {
 
         System.out.println(imgSrc + "压缩开始");
 
-        File file = new File(imgSrc);// 读入文件
-        Image img = ImageIO.read(file); // 构造Image对象
-
-        BufferedImage image = new BufferedImage(100, 125,
-                BufferedImage.TYPE_INT_RGB);
-        image.getGraphics().drawImage(img, 0, 0, 100, 125, null); // 绘制缩小后的图
-
-        FileOutputStream out = new FileOutputStream(imgSrc); // 输出到文件流
-
-        JPEGImageEncoder encoder = JPEGCodec.createJPEGEncoder(out);
-        encoder.encode(image); // JPEG编码
-        out.close();
+        Thumbnails.of(imgSrc)
+                .size(100, 100).keepAspectRatio(false)
+                .outputQuality(0.8f)
+                .toFile(storePath);
 
         System.out.println(imgSrc + "压缩完成");
     }
 
-    public String getIdFromUrl(String url) {
-        int start = url.indexOf("=") + 1;
-        String id = url.substring(start, url.length());
-        return id;
+    public static void imgRename() throws Exception {
+        DataBase db = new DataBase();
+        List<Player> players = db.getPlayerAll();
+        for (Player player : players) {
+            File from = new File(storePathBase + player.getPlayerId() + ".jpg");
+            File to = new File(storePathBase + player.getUuid() + ".jpg");
+            from.renameTo(to);
+        }
     }
 }

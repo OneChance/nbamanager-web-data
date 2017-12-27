@@ -1,211 +1,189 @@
 package zh.gamedata.entity;
 
-public class GameData {	
-	
-	private Long id;
-	
-	//球员
-	private String  player_id;
-	private String player_name;
-	
-	//上场时间
-	private String  game_time;
-	
-	//投篮	
-	private String shoot;
-	
-	//三分	
-	private String point3;
-	
-	//罚球	
-	private String free_throw;
-	
-	//前篮板	
-	private String  rebound_front;
-	
-	//后篮板	
-	private String rebound_back;
+public class GameData {
 
-	//总篮板	
-	private String rebound;
-	
-	//助攻	
-	private String assist;
-	
-	//抢断	
-	private String steal;
-	
-	//盖帽	
-	private String block;
-	
-	//失误	
-	private String fault;
-	
-	//犯规	
-	private String foul;
-	
-	//得分
-	private String point;
-	
-	//效率值
-	private int ev;
-	
-	//工资
-	private int sal;
-	
-	private String game_date;
+    private Long id;
 
-	public String getGame_date() {
-		return game_date;
-	}
+    //球员
+    private String uuid;
 
-	public void setGame_date(String game_date) {
-		this.game_date = game_date;
-	}
+    //上场时间
+    private String min;
 
-	public int getEv() {
-		return ev;
-	}
+    //投篮
+    private String shoot;
 
-	public void setEv(int ev) {
-		this.ev = ev;
-	}
+    //三分
+    private String point3;
 
-	public int getSal() {
-		return sal;
-	}
+    //罚球
+    private String freeThrow;
 
-	public void setSal(int sal) {
-		this.sal = sal;
-	}
+    //前篮板
+    private String offRebound;
 
-	public String getPlayer_name() {
-		return player_name;
-	}
+    //后篮板
+    private String defRebound;
 
-	public void setPlayer_name(String player_name) {
-		this.player_name = player_name;
-	}
+    //总篮板
+    private String rebound;
 
-	public String getPlayer_id() {
-		return player_id;
-	}
+    //助攻
+    private String assist;
 
-	public void setPlayer_id(String player_id) {
-		this.player_id = player_id;
-	}
+    //抢断
+    private String steal;
 
-	public String getGame_time() {
-		return game_time;
-	}
+    //盖帽
+    private String block;
 
-	public void setGame_time(String game_time) {
-		this.game_time = game_time;
-	}
+    //失误
+    private String fault;
 
-	public String getShoot() {
-		return shoot;
-	}
+    //犯规
+    private String foul;
 
-	public void setShoot(String shoot) {
-		this.shoot = shoot;
-	}
+    //得分
+    private String point;
 
-	public String getPoint3() {
-		return point3;
-	}
+    //效率值
+    private int ev;
 
-	public void setPoint3(String point3) {
-		this.point3 = point3;
-	}
+    private String gameDate;
 
-	public String getFree_throw() {
-		return free_throw;
-	}
+    public Long getId() {
+        return id;
+    }
 
-	public void setFree_throw(String free_throw) {
-		this.free_throw = free_throw;
-	}
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-	public String getRebound_front() {
-		return rebound_front;
-	}
+    public String getUuid() {
+        return uuid;
+    }
 
-	public void setRebound_front(String rebound_front) {
-		this.rebound_front = rebound_front;
-	}
+    public void setUuid(String uuid) {
+        this.uuid = uuid;
+    }
 
-	public String getRebound_back() {
-		return rebound_back;
-	}
+    public String getMin() {
+        return min;
+    }
 
-	public void setRebound_back(String rebound_back) {
-		this.rebound_back = rebound_back;
-	}
+    public void setMin(String min) {
+        this.min = min;
+    }
 
-	public String getRebound() {
-		return rebound;
-	}
+    public String getShoot() {
+        return shoot;
+    }
 
-	public void setRebound(String rebound) {
-		this.rebound = rebound;
-	}
+    public void setShoot(String shoot) {
+        this.shoot = shoot;
+    }
 
-	public String getAssist() {
-		return assist;
-	}
+    public String getPoint3() {
+        return point3;
+    }
 
-	public void setAssist(String assist) {
-		this.assist = assist;
-	}
+    public void setPoint3(String point3) {
+        this.point3 = point3;
+    }
 
-	public String getSteal() {
-		return steal;
-	}
+    public String getFreeThrow() {
+        return freeThrow;
+    }
 
-	public void setSteal(String steal) {
-		this.steal = steal;
-	}
+    public void setFreeThrow(String freeThrow) {
+        this.freeThrow = freeThrow;
+    }
 
-	public String getBlock() {
-		return block;
-	}
+    public String getOffRebound() {
+        return offRebound;
+    }
 
-	public void setBlock(String block) {
-		this.block = block;
-	}
+    public void setOffRebound(String offRebound) {
+        this.offRebound = offRebound;
+    }
 
-	public String getFault() {
-		return fault;
-	}
+    public String getDefRebound() {
+        return defRebound;
+    }
 
-	public void setFault(String fault) {
-		this.fault = fault;
-	}
+    public void setDefRebound(String defRebound) {
+        this.defRebound = defRebound;
+    }
 
-	public String getFoul() {
-		return foul;
-	}
+    public String getRebound() {
+        return rebound;
+    }
 
-	public void setFoul(String foul) {
-		this.foul = foul;
-	}
+    public void setRebound(String rebound) {
+        this.rebound = rebound;
+    }
 
-	public String getPoint() {
-		return point;
-	}
+    public String getAssist() {
+        return assist;
+    }
 
-	public void setPoint(String point) {
-		this.point = point;
-	}
+    public void setAssist(String assist) {
+        this.assist = assist;
+    }
 
-	public Long getId() {
-		return id;
-	}
+    public String getSteal() {
+        return steal;
+    }
 
-	public void setId(Long id) {
-		this.id = id;
-	}
-	
-	
+    public void setSteal(String steal) {
+        this.steal = steal;
+    }
+
+    public String getBlock() {
+        return block;
+    }
+
+    public void setBlock(String block) {
+        this.block = block;
+    }
+
+    public String getFault() {
+        return fault;
+    }
+
+    public void setFault(String fault) {
+        this.fault = fault;
+    }
+
+    public String getFoul() {
+        return foul;
+    }
+
+    public void setFoul(String foul) {
+        this.foul = foul;
+    }
+
+    public String getPoint() {
+        return point;
+    }
+
+    public void setPoint(String point) {
+        this.point = point;
+    }
+
+    public int getEv() {
+        return ev;
+    }
+
+    public void setEv(int ev) {
+        this.ev = ev;
+    }
+
+    public String getGameDate() {
+        return gameDate;
+    }
+
+    public void setGameDate(String gameDate) {
+        this.gameDate = gameDate;
+    }
 }
