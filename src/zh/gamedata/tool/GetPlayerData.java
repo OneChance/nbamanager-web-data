@@ -20,10 +20,14 @@ import zh.gamedata.entity.PlayerTemp;
 //球员基本数据
 public class GetPlayerData {
 
-    public static String storePathBase = "/home/ceeg/idea-workspace/nbamanager-front/app/style/images/player/";
+    public static String storePathBase = "";
+    public static String imgPath = "/home/ceeg/下载/8ae6113e-c4eb-4b2c-938b-9657483a0ea6.jpg";
+    public static String storePath = "/home/ceeg/下载/8ae6113e-c4eb-4b2c-938b-9657483a0ea6-bak.jpg";
+
 
     public static void main(String[] args) throws Exception {
-        imgRename();
+        //imgRename();
+        compressImg(imgPath, storePath);
     }
 
     public Player getPlayerByUUID(String uuid) throws IOException {
@@ -135,8 +139,8 @@ public class GetPlayerData {
         System.out.println(imgSrc + "压缩开始");
 
         Thumbnails.of(imgSrc)
-                .size(100, 100).keepAspectRatio(false)
-                .outputQuality(0.8f)
+                .scale(1)
+                .outputQuality(0.5f)
                 .toFile(storePath);
 
         System.out.println(imgSrc + "压缩完成");
